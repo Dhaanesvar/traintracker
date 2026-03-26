@@ -1,0 +1,1 @@
+Place all files you want in SPIFFS here. The trainstation.jfif image is already included.
