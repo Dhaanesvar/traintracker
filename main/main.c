@@ -5,15 +5,24 @@
 #include "esp_log.h"
 #include "esp_http_server.h"
 
+
 #define WIFI_SSID "TrainTracker"
 #define WIFI_PASS "12345678"
+
+// Simulated train location
+const char *current_station = "Station A";
 
 static const char *TAG = "TRAIN";
 
 // -------- Web Handler --------
 esp_err_t root_get_handler(httpd_req_t *req)
 {
-    const char* resp = "<h1>Train Tracking System</h1><p>Status: ONLINE</p>";
+    char resp[256];
+    snprintf(resp, sizeof(resp),
+        "<h1>Train Tracking System</h1>"
+        "<p>Status: ONLINE</p>"
+        "<p>Current Location: %s</p>",
+        current_station);
     httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
@@ -53,7 +62,7 @@ void wifi_init_softap(void)
         },
     };
 
-    if (strlen(WIFI_PASS) == 0) {x
+    if (strlen(WIFI_PASS) == 0) {
         wifi_config.ap.authmode = WIFI_AUTH_OPEN;
     }
 
