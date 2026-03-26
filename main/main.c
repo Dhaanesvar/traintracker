@@ -1,34 +1,35 @@
 #include <stdio.h>
+#include <string.h>
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "nvs_flash.h"
 #include "esp_log.h"
 #include "esp_http_server.h"
 
-
 #define WIFI_SSID "TrainTracker"
 #define WIFI_PASS "12345678"
 
-// Simulated train stations
+// Stations
 const char *stations[] = {
-    "Station A",
-    "Station B",
-    "Station C",
-    "Station D",
-    "Station E",
-    "Station F"
+    "Subang Jaya",
+    "Bangi",
+    "Kajang",
+    "Serdang",
+    "Petaling Jaya",
+    "KL Sentral"
 };
-// Simulate current location (now at Station B)
-const char *current_station = "Station B";
+
+// Current station
+const char *current_station = "Bangi";
 
 static const char *TAG = "TRAIN";
 
 // -------- Web Handler --------
 esp_err_t root_get_handler(httpd_req_t *req)
 {
-    // Find current station index
     int num_stations = sizeof(stations) / sizeof(stations[0]);
     int current_idx = 0;
+
     for (int i = 0; i < num_stations; ++i) {
         if (strcmp(current_station, stations[i]) == 0) {
             current_idx = i;
@@ -36,32 +37,72 @@ esp_err_t root_get_handler(httpd_req_t *req)
         }
     }
 
-    char resp[1024];
-    int len = snprintf(resp, sizeof(resp),
-        "<h1>Train Tracking System</h1>"
-        "<p>Status: ONLINE</p>"
-        "<div style='display:flex;align-items:center;gap:16px;margin:24px 0;'>");
+    // FIX: use static buffer (avoid crash)
+    static char resp[4096];
 
-    // Add station dots and labels
+    int len = snprintf(resp, sizeof(resp),
+    "<!DOCTYPE html><html><head>"
+    "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+    "<style>"
+    "body { margin:0; font-family: 'Segoe UI', sans-serif; background:#0f172a; color:#fff; }"
+    ".container { padding:20px; max-width:500px; margin:auto; }"
+
+    ".header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }"
+    ".title { font-size:22px; font-weight:bold; }"
+    ".status { background:#16a34a; padding:5px 10px; border-radius:20px; font-size:12px; }"
+
+    ".card { background:#1e293b; padding:20px; border-radius:16px; box-shadow:0 4px 20px rgba(0,0,0,0.3); margin-bottom:20px; }"
+    ".card-title { font-size:14px; color:#94a3b8; margin-bottom:5px; }"
+    ".card-value { font-size:20px; font-weight:bold; }"
+
+    ".timeline { display:flex; justify-content:space-between; align-items:center; position:relative; margin-top:30px; }"
+    ".line { position:absolute; top:12px; left:0; right:0; height:4px; background:#334155; z-index:0; }"
+
+    ".station { display:flex; flex-direction:column; align-items:center; z-index:1; width:60px; }"
+    ".dot { width:24px; height:24px; border-radius:50%%; margin-bottom:6px; transition:0.3s; }"
+
+    ".passed { background:#ef4444; }"
+    ".current { background:#3b82f6; width:30px; height:30px; box-shadow:0 0 12px #3b82f6; }"
+    ".upcoming { background:#64748b; }"
+
+    ".label { font-size:11px; text-align:center; color:#cbd5f5; }"
+
+    "</style></head><body>"
+
+    "<div class='container'>"
+
+    "<div class='header'>"
+    "<div class='title'>Train Tracker</div>"
+    "<div class='status'>ONLINE</div>"
+    "</div>"
+
+    "<div class='card'>"
+    "<div class='card-title'>Current Location</div>"
+    "<div class='card-value'> %s</div>"
+    "</div>"
+
+    "<div class='card'>"
+    "<div class='card-title'>Route Progress</div>"
+
+    "<div class='timeline'>"
+    "<div class='line'></div>"
+    , current_station);
+
     for (int i = 0; i < num_stations; ++i) {
-        const char *color = "#222"; // Not yet arrived (black)
-        if (i < current_idx) color = "red"; // Passed
-        else if (i == current_idx) color = "blue"; // Current
+        const char *cls = "upcoming";
+        if (i < current_idx) cls = "passed";
+        else if (i == current_idx) cls = "current";
+
         len += snprintf(resp + len, sizeof(resp) - len,
-            "<div style='text-align:center;'>"
-            "<div style='width:24px;height:24px;border-radius:50%%;background:%s;margin:auto;'></div>"
-            "<div style='font-size:12px;margin-top:4px;'>%s</div>"
+            "<div class='station'>"
+            "<div class='dot %s'></div>"
+            "<div class='label'>%s</div>"
             "</div>",
-            color, stations[i]);
-        if (i < num_stations - 1) {
-            len += snprintf(resp + len, sizeof(resp) - len,
-                "<div style='height:4px;width:32px;background:#aaa;'></div>");
-        }
+            cls, stations[i]);
     }
-    len += snprintf(resp + len, sizeof(resp) - len, "</div>");
 
     len += snprintf(resp + len, sizeof(resp) - len,
-        "<p>Current Location: %s</p>", current_station);
+    "</div></div></div></body></html>");
 
     httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
