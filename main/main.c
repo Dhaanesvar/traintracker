@@ -24,7 +24,7 @@ int current_idx = 0;
 
 static const char *TAG = "TRAIN";
 
-// 🚆 Move train every 10 sec (smooth demo)
+// 🚆 Train movement
 void train_task(void *arg)
 {
     while (1) {
@@ -35,7 +35,7 @@ void train_task(void *arg)
     }
 }
 
-// -------- Static File Handler --------
+// -------- STATIC FILE --------
 esp_err_t static_file_handler(httpd_req_t *req) {
     char filepath[128] = "/spiffs";
     strncat(filepath, req->uri + 7, sizeof(filepath) - strlen(filepath) - 1);
@@ -65,38 +65,52 @@ esp_err_t static_file_handler(httpd_req_t *req) {
 // -------- WEB UI --------
 esp_err_t root_get_handler(httpd_req_t *req)
 {
-    static char resp[10000];
+    static char resp[12000];
     int len = 0;
 
     len += snprintf(resp + len, sizeof(resp) - len,
     "<!DOCTYPE html><html><head>"
     "<meta name='viewport' content='width=device-width, initial-scale=1'>"
     "<meta http-equiv='refresh' content='3'>"
+
     "<style>"
-    "body{margin:0;font-family:'Segoe UI';background:url('/static/trainstation.jfif') center/cover no-repeat fixed;color:white;}"
+    "body{margin:0;font-family:'Segoe UI';"
+    "background:url('/static/trainstation.jfif') center/cover no-repeat fixed;color:white;}"
 
     ".overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,15,30,0.75);}"
 
-    ".container{position:relative;z-index:1;padding:20px;max-width:900px;margin:auto;}"
+    ".main{display:flex;position:relative;z-index:1;}"
+
+    ".left{flex:3;padding:20px;}"
+    ".right{flex:1;padding:20px;}"
 
     ".header{display:flex;justify-content:space-between;margin-bottom:20px;}"
     ".title{font-size:30px;font-weight:bold;}"
     ".status{background:#22c55e;padding:8px 16px;border-radius:20px;}"
 
-    ".card{background:rgba(30,41,59,0.9);padding:30px;border-radius:20px;margin-bottom:20px;"
-    "box-shadow:0 10px 40px rgba(0,0,0,0.6);}"
+    ".card{background:rgba(30,41,59,0.9);padding:25px;border-radius:20px;"
+    "margin-bottom:20px;box-shadow:0 10px 40px rgba(0,0,0,0.6);}"
 
     ".big-card{height:320px;}"
-
-    ".message{text-align:center;font-size:26px;font-style:italic;margin-top:25px;color:#facc15;}"
 
     "table{width:100%%;border-collapse:collapse;margin-top:10px;}"
     "th,td{padding:12px;text-align:center;}"
     "tr{border-bottom:1px solid #334155;}"
 
+    ".message{text-align:center;font-size:24px;font-style:italic;"
+    "margin-top:20px;color:#facc15;}"
+
+    ".info-title{font-size:20px;font-weight:bold;margin-bottom:10px;color:#38bdf8;}"
+    ".info-text{font-size:14px;line-height:1.6;color:#cbd5f5;}"
+    ".highlight{color:#facc15;font-weight:bold;}"
+
     "</style></head>"
 
-    "<body><div class='overlay'></div><div class='container'>"
+    "<body><div class='overlay'></div>"
+
+    "<div class='main'>"
+
+    "<div class='left'>"
 
     "<div class='header'>"
     "<div class='title'>Smart Train Tracker</div>"
@@ -108,11 +122,10 @@ esp_err_t root_get_handler(httpd_req_t *req)
 
     "<svg viewBox='0 0 900 200' width='100%%' height='220'>"
 
-    // BIG STRAIGHT TRACK
-    "<line x1='60' y1='120' x2='850' y2='120' stroke='#64748b' stroke-width='8' stroke-linecap='round'/>"
+    "<line x1='60' y1='120' x2='850' y2='120' "
+    "stroke='#64748b' stroke-width='10' stroke-linecap='round'/>"
     );
 
-    // ---------- DOTS ----------
     int start_x = 60;
     int end_x = 850;
     int y = 120;
@@ -127,23 +140,16 @@ esp_err_t root_get_handler(httpd_req_t *req)
 
         len += snprintf(resp + len, sizeof(resp) - len,
             "<circle cx='%d' cy='%d' r='%d' fill='%s'/>"
-            "<text x='%d' y='%d' font-size='16' text-anchor='middle' fill='#e2e8f0'>%s</text>",
+            "<text x='%d' y='%d' font-size='14' text-anchor='middle' fill='#e2e8f0'>%s</text>",
             x, y,
-            (i == current_idx) ? 18 : 12,
+            (i == current_idx) ? 16 : 12,
             color,
-            x, y + 40,
+            x, y + 35,
             stations[i]);
     }
 
-    // ---------- TRAIN ----------
-    int train_x = start_x + current_idx * (end_x - start_x) / (num_stations - 1);
 
-    len += snprintf(resp + len, sizeof(resp) - len,
-        "<text x='%d' y='%d' font-size='34'></text>",
-        train_x - 18, y - 20
-    );
 
-    // CLOSE SVG + CARD
     len += snprintf(resp + len, sizeof(resp) - len,
     "</svg></div>"
 
@@ -154,7 +160,6 @@ esp_err_t root_get_handler(httpd_req_t *req)
     stations[(current_idx + 1) % num_stations]
     );
 
-    // ---------- TABLE ----------
     len += snprintf(resp + len, sizeof(resp) - len,
     "<div class='card'><b>Upcoming Train Schedule</b>"
     "<table>"
@@ -169,14 +174,49 @@ esp_err_t root_get_handler(httpd_req_t *req)
 
     "<div class='message'>Welcome aboard. Your journey begins with innovation</div>"
 
-    "</div></body></html>"
+    "</div>" // LEFT
+
+    "<div class='right'>"
+
+    "<div class='card'>"
+    "<div class='info-title'>Railway History</div>"
+    "<div class='info-text'>"
+    "Founded in <span class='highlight'>1998</span>, the Smart Rail Network was designed "
+"to revolutionize intercity transportation across Malaysia. What began as a modest "
+"two-line system has evolved into a nationwide infrastructure connecting key economic "
+"and cultural regions.<br><br>"
+
+"Over the past two decades, the railway has expanded to serve more than "
+"<span class='highlight'>1.5 million passengers annually</span>, providing reliable, "
+"safe, and efficient mobility for both daily commuters and long-distance travelers.<br><br>"
+
+"Today, the Smart Train System stands as a symbol of modern engineering and digital "
+"transformation, integrating embedded systems, IoT communication, and intelligent "
+"control mechanisms to ensure seamless operations.<br><br>"
+
+"With a vision toward the future, ongoing developments aim to implement "
+"<span class='highlight'>AI-powered predictive maintenance</span> and fully autonomous "
+"train operations, positioning the railway as a leader in next-generation transport systems."
+
+"</div></div>"
+
+    "<div class='card'>"
+    "<div class='info-title'>System Stats</div>"
+    "<div class='info-text'>"
+    "1. Stations: <span class='highlight'>10</span><br>"
+    "2. Active Trains: <span class='highlight'>6</span><br>"
+    "3. Avg Speed: <span class='highlight'>120 km/h</span><br>"
+    "4. Status: <span class='highlight'>Operational</span>"
+    "</div></div>"
+
+    "</div></div></body></html>"
     );
 
     httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
-// -------- Server --------
+// -------- SERVER --------
 httpd_handle_t start_webserver(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -192,7 +232,7 @@ httpd_handle_t start_webserver(void)
     return server;
 }
 
-// -------- WiFi --------
+// -------- WIFI --------
 void wifi_init_softap(void)
 {
     esp_netif_create_default_wifi_ap();
