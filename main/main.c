@@ -15,8 +15,8 @@
 #define WIFI_PASS "12345678"
 
 const char *stations[] = {
-    "Subang Jaya","Bangi","Kajang","Serdang","Petaling Jaya",
-    "KL Sentral","Putrajaya","Ipoh","Butterworth","Penang"
+    "Perlis","Kedah","Penang","Perak","Selangor",
+    "N9","Melaka","Johor","Kelantan","Terengganu"
 };
 
 int num_stations = sizeof(stations) / sizeof(stations[0]);
@@ -24,11 +24,11 @@ int current_idx = 0;
 
 static const char *TAG = "TRAIN";
 
-// 🚆 Move train every 8 sec (smooth demo)
+// 🚆 Move train every 10 sec (smooth demo)
 void train_task(void *arg)
 {
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(8000));
+        vTaskDelay(pdMS_TO_TICKS(10000));
         current_idx++;
         if (current_idx >= num_stations) current_idx = 0;
         ESP_LOGI(TAG, "Train moved to: %s", stations[current_idx]);
@@ -65,89 +65,96 @@ esp_err_t static_file_handler(httpd_req_t *req) {
 // -------- WEB UI --------
 esp_err_t root_get_handler(httpd_req_t *req)
 {
-    static char resp[9000];
+    static char resp[10000];
     int len = 0;
 
     len += snprintf(resp + len, sizeof(resp) - len,
     "<!DOCTYPE html><html><head>"
     "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-    "<meta http-equiv='refresh' content='3'>"  // faster refresh
-
+    "<meta http-equiv='refresh' content='3'>"
     "<style>"
-    "body{margin:0;font-family:'Segoe UI';"
-    "background:url('/static/trainstation.jfif') center/cover no-repeat fixed;color:white;}"
+    "body{margin:0;font-family:'Segoe UI';background:url('/static/trainstation.jfif') center/cover no-repeat fixed;color:white;}"
 
     ".overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,15,30,0.75);}"
 
-    ".container{position:relative;z-index:1;padding:20px;max-width:750px;margin:auto;}"
+    ".container{position:relative;z-index:1;padding:20px;max-width:900px;margin:auto;}"
 
     ".header{display:flex;justify-content:space-between;margin-bottom:20px;}"
-    ".title{font-size:28px;font-weight:bold;}"
-    ".status{background:#22c55e;padding:6px 14px;border-radius:20px;}"
+    ".title{font-size:30px;font-weight:bold;}"
+    ".status{background:#22c55e;padding:8px 16px;border-radius:20px;}"
 
-    ".card{background:rgba(30,41,59,0.9);padding:25px;border-radius:20px;margin-bottom:20px;"
-    "box-shadow:0 10px 40px rgba(0,0,0,0.5);}"
+    ".card{background:rgba(30,41,59,0.9);padding:30px;border-radius:20px;margin-bottom:20px;"
+    "box-shadow:0 10px 40px rgba(0,0,0,0.6);}"
 
-    ".big-card{height:260px;}"
+    ".big-card{height:320px;}"
 
     ".message{text-align:center;font-size:26px;font-style:italic;margin-top:25px;color:#facc15;}"
 
     "table{width:100%%;border-collapse:collapse;margin-top:10px;}"
-    "th,td{padding:10px;text-align:center;}"
+    "th,td{padding:12px;text-align:center;}"
     "tr{border-bottom:1px solid #334155;}"
+
     "</style></head>"
 
     "<body><div class='overlay'></div><div class='container'>"
 
-    "<div class='header'><div class='title'>Smart Train Tracker</div>"
-    "<div class='status'>LIVE</div></div>"
+    "<div class='header'>"
+    "<div class='title'>Smart Train Tracker</div>"
+    "<div class='status'>LIVE</div>"
+    "</div>"
 
-    "<div class='card big-card'><b>Live Route Progress</b>"
-    "<svg viewBox='0 0 600 150' width='100%%'>"
+    "<div class='card big-card'>"
+    "<b style='font-size:22px;'>Live Route Progress</b>"
 
-    // Track
-    "<path d='M50 100 Q200 20 350 100 Q500 180 550 100'"
-    " stroke='#64748b' stroke-width='6' fill='none'/>"
+    "<svg viewBox='0 0 900 200' width='100%%' height='220'>"
+
+    // BIG STRAIGHT TRACK
+    "<line x1='60' y1='120' x2='850' y2='120' stroke='#64748b' stroke-width='8' stroke-linecap='round'/>"
     );
 
-    // Train position calculation
-    int train_x = 50 + (current_idx * 50);
-    int train_y = (current_idx % 2 == 0) ? 100 : 60;
+    // ---------- DOTS ----------
+    int start_x = 60;
+    int end_x = 850;
+    int y = 120;
 
-    // Stations
     for (int i = 0; i < num_stations; i++) {
-        int x = 50 + (i * 50);
-        int y = (i % 2 == 0) ? 100 : 60;
+
+        int x = start_x + i * (end_x - start_x) / (num_stations - 1);
 
         const char *color = "#64748b";
         if (i < current_idx) color = "#ef4444";
         else if (i == current_idx) color = "#3b82f6";
 
         len += snprintf(resp + len, sizeof(resp) - len,
-        "<circle cx='%d' cy='%d' r='%d' fill='%s'/>"
-        "<text x='%d' y='%d' font-size='11' text-anchor='middle' fill='#e2e8f0'>%s</text>",
-        x, y,
-        (i == current_idx) ? 9 : 6,
-        color,
-        x, y + 20,
-        stations[i]);
+            "<circle cx='%d' cy='%d' r='%d' fill='%s'/>"
+            "<text x='%d' y='%d' font-size='16' text-anchor='middle' fill='#e2e8f0'>%s</text>",
+            x, y,
+            (i == current_idx) ? 18 : 12,
+            color,
+            x, y + 40,
+            stations[i]);
     }
 
-    // 🚆 TRAIN ICON (moving)
+    // ---------- TRAIN ----------
+    int train_x = start_x + current_idx * (end_x - start_x) / (num_stations - 1);
+
     len += snprintf(resp + len, sizeof(resp) - len,
-    "<text x='%d' y='%d' font-size='20'></text>",
-    train_x - 10, train_y - 10
+        "<text x='%d' y='%d' font-size='34'></text>",
+        train_x - 18, y - 20
     );
 
+    // CLOSE SVG + CARD
     len += snprintf(resp + len, sizeof(resp) - len,
     "</svg></div>"
 
-    "<div class='card'>Train is currently at <b>%s</b> heading to <b>%s</b></div>",
+    "<div class='card'>"
+    "Train is currently at <b>%s</b> heading to <b>%s</b>"
+    "</div>",
     stations[current_idx],
     stations[(current_idx + 1) % num_stations]
     );
 
-    // Table
+    // ---------- TABLE ----------
     len += snprintf(resp + len, sizeof(resp) - len,
     "<div class='card'><b>Upcoming Train Schedule</b>"
     "<table>"
@@ -160,7 +167,7 @@ esp_err_t root_get_handler(httpd_req_t *req)
     "<tr><td>T6</td><td>20 min</td><td style='color:#ef4444'>Delayed</td><td>#106</td></tr>"
     "</table></div>"
 
-    "<div class='message'>Welcome aboard and Your journey begins with innovation.</div>"
+    "<div class='message'>Welcome aboard. Your journey begins with innovation</div>"
 
     "</div></body></html>"
     );
