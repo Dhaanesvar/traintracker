@@ -9,20 +9,60 @@
 #define WIFI_SSID "TrainTracker"
 #define WIFI_PASS "12345678"
 
-// Simulated train location
-const char *current_station = "Station A";
+// Simulated train stations
+const char *stations[] = {
+    "Station A",
+    "Station B",
+    "Station C",
+    "Station D",
+    "Station E",
+    "Station F"
+};
+// Simulate current location (now at Station B)
+const char *current_station = "Station B";
 
 static const char *TAG = "TRAIN";
 
 // -------- Web Handler --------
 esp_err_t root_get_handler(httpd_req_t *req)
 {
-    char resp[256];
-    snprintf(resp, sizeof(resp),
+    // Find current station index
+    int num_stations = sizeof(stations) / sizeof(stations[0]);
+    int current_idx = 0;
+    for (int i = 0; i < num_stations; ++i) {
+        if (strcmp(current_station, stations[i]) == 0) {
+            current_idx = i;
+            break;
+        }
+    }
+
+    char resp[1024];
+    int len = snprintf(resp, sizeof(resp),
         "<h1>Train Tracking System</h1>"
         "<p>Status: ONLINE</p>"
-        "<p>Current Location: %s</p>",
-        current_station);
+        "<div style='display:flex;align-items:center;gap:16px;margin:24px 0;'>");
+
+    // Add station dots and labels
+    for (int i = 0; i < num_stations; ++i) {
+        const char *color = "#222"; // Not yet arrived (black)
+        if (i < current_idx) color = "red"; // Passed
+        else if (i == current_idx) color = "blue"; // Current
+        len += snprintf(resp + len, sizeof(resp) - len,
+            "<div style='text-align:center;'>"
+            "<div style='width:24px;height:24px;border-radius:50%%;background:%s;margin:auto;'></div>"
+            "<div style='font-size:12px;margin-top:4px;'>%s</div>"
+            "</div>",
+            color, stations[i]);
+        if (i < num_stations - 1) {
+            len += snprintf(resp + len, sizeof(resp) - len,
+                "<div style='height:4px;width:32px;background:#aaa;'></div>");
+        }
+    }
+    len += snprintf(resp + len, sizeof(resp) - len, "</div>");
+
+    len += snprintf(resp + len, sizeof(resp) - len,
+        "<p>Current Location: %s</p>", current_station);
+
     httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
